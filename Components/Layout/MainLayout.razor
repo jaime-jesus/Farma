@@ -1,0 +1,69 @@
+@inherits LayoutComponentBase
+@using PharmaCareBlazor.Services.Interfaces
+@inject IAuthService AuthService
+
+<div class="pharma-app">
+    <header class="pharma-navbar no-print">
+        <a href="/" class="brand-badge">
+            <div class="brand-icon-box">
+                💊
+            </div>
+            <div>
+                <div class="brand-title">PharmaCare .NET</div>
+                <div class="brand-subtitle">Gestión Farmacéutica • .NET 8 & Blazor</div>
+            </div>
+        </a>
+
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-none d-md-flex align-items-center gap-2 px-3 py-1 rounded" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25);">
+                <span class="spinner-grow spinner-grow-sm text-success" style="width: 8px; height: 8px;" role="status"></span>
+                <span class="small text-success fw-bold font-monospace">SQLite: app.db</span>
+            </div>
+
+            @if (AuthService.IsAuthenticated)
+            {
+                <div class="d-flex align-items-center gap-2 border-start border-secondary ps-3">
+                    <div class="text-end d-none d-sm-block">
+                        <div class="fw-bold small text-white">@AuthService.CurrentUser</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">@AuthService.UserRole</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger ms-2" @onclick="Logout" title="Cerrar Sesión">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span class="d-none d-md-inline ms-1">Salir</span>
+                    </button>
+                </div>
+            }
+        </div>
+    </header>
+
+    <main class="pharma-main">
+        @Body
+    </main>
+
+    <footer class="text-center py-4 text-muted small no-print border-top border-secondary mt-5" style="border-color: rgba(255,255,255,0.06) !important;">
+        <div>
+            <strong>PharmaCare Suite .NET</strong> — Arquitectura en Capas con C#, .NET 8, Blazor Server, SQLite y Entity Framework Core.
+        </div>
+        <div class="text-dim mt-1" style="font-size: 0.75rem; color: #64748b;">
+            Proyecto demostrativo de nivel intermedio para portafolio GitHub • Principios SOLID & Result Pattern
+        </div>
+    </footer>
+</div>
+
+<div id="blazor-error-ui" class="no-print">
+    Ocurrió un error no controlado en la aplicación.
+    <a href="" class="reload">Recargar</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        AuthService.OnAuthStateChanged += StateHasChanged;
+    }
+
+    private void Logout()
+    {
+        AuthService.Logout();
+    }
+}

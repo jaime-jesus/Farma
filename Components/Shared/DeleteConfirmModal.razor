@@ -1,0 +1,121 @@
+@using PharmaCareBlazor.DTOs
+@using PharmaCareBlazor.Services.Interfaces
+@inject IProductService ProductService
+
+@if (IsOpen && Product != null)
+{
+    <div class="modal-backdrop-custom" @onclick="Close">
+        <div class="modal-dialog-custom" style="max-width: 500px;" @onclick:stopPropagation="true">
+            <div class="modal-header-custom" style="background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.2);">
+                <h3 class="modal-title-custom text-danger">
+                    <i class="bi bi-trash3-fill"></i>
+                    <span>Confirmar Eliminación</span>
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-body-custom text-center py-4">
+                <div class="mb-3">
+                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger p-3 rounded-circle fs-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </span>
+                </div>
+                <h4 class="mb-2">¿Eliminar este medicamento?</h4>
+                <p class="text-muted small mb-4">
+                    Esta acción eliminará de forma permanente el registro del inventario y no se puede deshacer.
+                </p>
+
+                <div class="p-3 rounded text-start" style="background: #0f182c; border: 1px solid var(--pharma-border);">
+                    <div class="small text-muted">Medicamento:</div>
+                    <div class="fw-bold fs-6 text-white mb-2">@Product.Name</div>
+                    
+                    <div class="row g-2 small">
+                        <div class="col-6">
+                            <span class="text-muted">Código:</span> <span class="text-info font-monospace">@Product.Code</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted">Lote:</span> <span class="text-white">@Product.BatchNumber</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted">Stock actual:</span> <span class="text-white">@Product.Stock unid.</span>
+                        </div>
+                        <div class="col-6">
+                            <span class="text-muted">Laboratorio:</span> <span class="text-white">@Product.Laboratory</span>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger mt-3 py-2 small text-start">
+                        @ErrorMessage
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-pharma btn-pharma-secondary" @onclick="Close">
+                    Cancelar
+                </button>
+                <button type="button" class="btn-pharma btn-pharma-danger" @onclick="ConfirmDelete" disabled="@IsDeleting">
+                    @if (IsDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span>Eliminando...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-trash3"></i>
+                        <span>Sí, Eliminar Producto</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public ProductDto? Product { get; set; }
+    [Parameter] public EventCallback OnProductDeleted { get; set; }
+
+    private bool IsDeleting { get; set; } = false;
+    private string? ErrorMessage { get; set; }
+
+    public void Open(ProductDto product)
+    {
+        Product = product;
+        ErrorMessage = null;
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (Product == null) return;
+
+        IsDeleting = true;
+        ErrorMessage = null;
+
+        var result = await ProductService.DeleteAsync(Product.Id);
+        if (result.IsFailure)
+        {
+            ErrorMessage = result.Message;
+            IsDeleting = false;
+            return;
+        }
+
+        IsDeleting = false;
+        await OnProductDeleted.InvokeAsync();
+        await Close();
+    }
+}

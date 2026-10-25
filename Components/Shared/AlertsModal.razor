@@ -1,0 +1,187 @@
+@using PharmaCareBlazor.DTOs
+@using PharmaCareBlazor.Services.Interfaces
+@inject IProductService ProductService
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-custom" @onclick="Close">
+        <div class="modal-dialog-custom" style="max-width: 850px;" @onclick:stopPropagation="true">
+            <div class="modal-header-custom" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">
+                <h3 class="modal-title-custom text-warning">
+                    <i class="bi bi-shield-exclamation"></i>
+                    <span>Centro de Alertas Sanitarias & Stock</span>
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-body-custom">
+                <!-- Nav Tabs for Alerts -->
+                <div class="d-flex gap-2 mb-3 border-bottom pb-2 border-secondary">
+                    <button class="btn btn-sm @(ActiveTab == "expiring" ? "btn-warning text-dark fw-bold" : "btn-outline-secondary text-white")"
+                            @onclick='() => ActiveTab = "expiring"'>
+                        <i class="bi bi-calendar-x me-1"></i>
+                        Próximos a Vencer (@ExpiringProducts.Count)
+                    </button>
+                    <button class="btn btn-sm @(ActiveTab == "stock" ? "btn-danger fw-bold" : "btn-outline-secondary text-white")"
+                            @onclick='() => ActiveTab = "stock"'>
+                        <i class="bi bi-box-arrow-in-down me-1"></i>
+                        Stock Crítico / Reposición (@CriticalProducts.Count)
+                    </button>
+                </div>
+
+                @if (ActiveTab == "expiring")
+                {
+                    <div class="alert alert-warning py-2 small d-flex align-items-center mb-3">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                        <div>Medicamentos que vencen en los próximos 60 días. Requieren rotación prioritaria o retiro según BPA.</div>
+                    </div>
+
+                    @if (ExpiringProducts.Count == 0)
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                            Excelente: No hay lotes próximos a vencer en los próximos 60 días.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pharma-table-container">
+                            <table class="pharma-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Medicamento</th>
+                                        <th>Lote</th>
+                                        <th>Vence</th>
+                                        <th>Días Restantes</th>
+                                        <th>Stock</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in ExpiringProducts)
+                                    {
+                                        <tr>
+                                            <td class="font-monospace text-info">@p.Code</td>
+                                            <td class="fw-bold">@p.Name</td>
+                                            <td class="font-monospace small">@p.BatchNumber</td>
+                                            <td>@p.ExpirationDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                @if (p.DaysUntilExpiration <= 30)
+                                                {
+                                                    <span class="badge-status badge-danger">
+                                                        <i class="bi bi-alarm"></i> @p.DaysUntilExpiration días
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge-status badge-warning">
+                                                        <i class="bi bi-clock"></i> @p.DaysUntilExpiration días
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>@p.Stock unid.</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-info" @onclick="() => OnEditClicked.InvokeAsync(p)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="alert alert-danger py-2 small d-flex align-items-center mb-3">
+                        <i class="bi bi-cart-x-fill fs-5 me-2"></i>
+                        <div>Medicamentos cuyo stock actual está en o por debajo del stock mínimo de seguridad.</div>
+                    </div>
+
+                    @if (CriticalProducts.Count == 0)
+                    {
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                            Todos los medicamentos cuentan con stock superior al límite mínimo.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pharma-table-container">
+                            <table class="pharma-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Medicamento</th>
+                                        <th>Laboratorio</th>
+                                        <th>Stock Actual</th>
+                                        <th>Stock Mínimo</th>
+                                        <th>Déficit</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in CriticalProducts)
+                                    {
+                                        <tr>
+                                            <td class="font-monospace text-info">@p.Code</td>
+                                            <td class="fw-bold">@p.Name</td>
+                                            <td>@p.Laboratory</td>
+                                            <td>
+                                                <span class="badge-status badge-danger">
+                                                    @p.Stock unid.
+                                                </span>
+                                            </td>
+                                            <td class="text-muted">@p.MinStock unid.</td>
+                                            <td class="text-danger fw-bold">-@(p.MinStock - p.Stock) unid.</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-info" @onclick="() => OnEditClicked.InvokeAsync(p)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-pharma btn-pharma-secondary" @onclick="Close">
+                    Entendido / Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback<ProductDto> OnEditClicked { get; set; }
+
+    private string ActiveTab { get; set; } = "expiring";
+    private List<ProductDto> ExpiringProducts { get; set; } = new();
+    private List<ProductDto> CriticalProducts { get; set; } = new();
+
+    public async Task Open(string tab = "expiring")
+    {
+        ActiveTab = tab;
+        ExpiringProducts = await ProductService.GetExpiringSoonAsync(60);
+        CriticalProducts = await ProductService.GetCriticalStockAsync();
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+}

@@ -1,0 +1,524 @@
+@page "/"
+@using PharmaCareBlazor.DTOs
+@using PharmaCareBlazor.Services.Interfaces
+@inject IProductService ProductService
+@inject IAuthService AuthService
+
+<PageTitle>PharmaCare .NET - Gestión Farmacéutica</PageTitle>
+
+@if (!AuthService.IsAuthenticated)
+{
+    <!-- ===================================================================
+         PANTALLA DE BIENVENIDA & LOGIN
+         =================================================================== -->
+    <div class="pharma-container d-flex align-items-center justify-content-center" style="min-height: 75vh;">
+        <div class="pharma-card pharma-card-glow" style="max-width: 480px; width: 100%; padding: 2.5rem 2rem;">
+            <div class="text-center mb-4">
+                <div class="brand-icon-box mx-auto mb-3" style="width: 58px; height: 58px; font-size: 1.8rem;">
+                    💊
+                </div>
+                <h2 class="mb-1" style="font-size: 1.7rem;">Bienvenido a PharmaCare</h2>
+                <p class="text-muted small">Sistema de Control y Gestión Farmacéutica</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(LoginError))
+            {
+                <div class="alert alert-danger py-2 px-3 small d-flex align-items-center mb-3">
+                    <i class="bi bi-shield-x fs-5 me-2"></i>
+                    <div>@LoginError</div>
+                </div>
+            }
+
+            <div class="form-group-custom">
+                <label class="form-label-custom">Usuario</label>
+                <div class="position-relative">
+                    <input type="text" class="pharma-input ps-4" @bind="LoginUsername" placeholder="Ingresa tu usuario..." />
+                </div>
+            </div>
+
+            <div class="form-group-custom mb-4">
+                <label class="form-label-custom">Contraseña</label>
+                <input type="password" class="pharma-input ps-4" @bind="LoginPassword" @onkeydown="HandlePasswordKeyDown" placeholder="••••••••" />
+            </div>
+
+            <button class="btn-pharma btn-pharma-primary w-100 py-2 mb-3" @onclick="HandleLogin">
+                <i class="bi bi-box-arrow-in-right"></i>
+                <span>Ingresar al Sistema</span>
+            </button>
+
+            <!-- Demo helper card for GitHub reviewers -->
+            <div class="p-3 rounded text-start mt-4" style="background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.3);">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi bi-info-circle text-success"></i>
+                    <span class="small fw-bold text-success">Credenciales Demo para GitHub:</span>
+                </div>
+                <div class="small text-muted mb-2">Haz clic para autorrellenar y acceder de inmediato:</div>
+                <button type="button" class="btn btn-sm btn-outline-success w-100 py-1" @onclick="FillDemoCredentials">
+                    <i class="bi bi-key me-1"></i> Usar usuario: <strong>admin</strong> | Clave: <strong>admin123</strong>
+                </button>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- ===================================================================
+         VENTANA PRINCIPAL (DASHBOARD)
+         =================================================================== -->
+    <div class="pharma-container">
+        <!-- Top Welcome Header -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+            <div>
+                <h1 class="mb-1" style="font-size: 1.85rem;">Panel de Operaciones Farmacéuticas</h1>
+                <p class="text-muted mb-0 small">
+                    Sesión activa: <span class="text-white fw-bold">@AuthService.CurrentUser</span> (@AuthService.UserRole) • 
+                    Fecha: <span class="text-info">@DateTime.Now.ToString("dddd, dd 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-ES"))</span>
+                </p>
+            </div>
+            <div>
+                <button class="btn-pharma btn-pharma-secondary btn-sm" @onclick="LoadDataAsync">
+                    <i class="bi bi-arrow-clockwise"></i> Actualizar Datos
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(SuccessMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show d-flex align-items-center py-2 px-3 mb-4" role="alert">
+                <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                <div class="flex-grow-1 small">@SuccessMessage</div>
+                <button type="button" class="btn-close" @onclick="() => SuccessMessage = null"></button>
+            </div>
+        }
+
+        <!-- KPI Metrics Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon-box icon-emerald">
+                    <i class="bi bi-capsule"></i>
+                </div>
+                <div class="metric-info">
+                    <div class="metric-title">Total Catálogo</div>
+                    <div class="metric-value">@Metrics.TotalProducts <span class="fs-6 fw-normal text-muted">ítems</span></div>
+                </div>
+            </div>
+
+            <div class="metric-card" style="cursor: pointer;" @onclick='() => OpenAlerts("expiring")' title="Clic para ver medicamentos por vencer">
+                <div class="metric-icon-box icon-amber">
+                    <i class="bi bi-calendar-x"></i>
+                </div>
+                <div class="metric-info">
+                    <div class="metric-title">Por Vencer (60 días)</div>
+                    <div class="metric-value text-warning">@Metrics.ExpiringSoonCount <span class="fs-6 fw-normal text-muted">lotes</span></div>
+                </div>
+            </div>
+
+            <div class="metric-card" style="cursor: pointer;" @onclick='() => OpenAlerts("stock")' title="Clic para ver stock crítico">
+                <div class="metric-icon-box icon-rose">
+                    <i class="bi bi-exclamation-octagon"></i>
+                </div>
+                <div class="metric-info">
+                    <div class="metric-title">Stock Crítico</div>
+                    <div class="metric-value text-danger">@Metrics.CriticalStockCount <span class="fs-6 fw-normal text-muted">bajas</span></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon-box icon-blue">
+                    <i class="bi bi-currency-dollar"></i>
+                </div>
+                <div class="metric-info">
+                    <div class="metric-title">Valor en Inventario</div>
+                    <div class="metric-value text-info">$@Metrics.TotalInventoryValue.ToString("N2")</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===============================================================
+             CENTRAL ACTION HUB (LOS BOTONES EN EL CENTRO DE LA PANTALLA)
+             =============================================================== -->
+        <div class="action-hub-section">
+            <div class="action-hub-header">
+                <h2>Operaciones Centrales del Sistema</h2>
+                <p>Selecciona una acción para abrir la ventana modal correspondiente</p>
+            </div>
+
+            <div class="central-buttons-grid">
+                <!-- Botón 1: Ingreso de Medicamento (CRUD) -->
+                <button type="button" class="action-tile-btn tile-emerald" @onclick="OpenCreateProductModal">
+                    <div class="tile-top">
+                        <div class="tile-icon icon-emerald">
+                            <i class="bi bi-box-seam-fill"></i>
+                        </div>
+                        <span class="tile-badge badge-success">Operación Principal</span>
+                    </div>
+                    <div>
+                        <div class="tile-title">Ingreso / Gestión</div>
+                        <p class="tile-desc">Registrar nuevo producto farmacéutico con validaciones de lote, fechas y precios (CRUD).</p>
+                    </div>
+                    <div class="tile-arrow">
+                        <span>Abrir Formulario</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </button>
+
+                <!-- Botón 2: Reporte en PDF -->
+                <button type="button" class="action-tile-btn tile-blue" @onclick='() => OpenReportModal("all")'>
+                    <div class="tile-top">
+                        <div class="tile-icon icon-blue">
+                            <i class="bi bi-file-earmark-pdf-fill"></i>
+                        </div>
+                        <span class="tile-badge badge-info">Documentos</span>
+                    </div>
+                    <div>
+                        <div class="tile-title">Reportes en PDF</div>
+                        <p class="tile-desc">Generar, previsualizar e imprimir reportes valorizados y oficiales en formato PDF.</p>
+                    </div>
+                    <div class="tile-arrow">
+                        <span>Generar Reporte</span>
+                        <i class="bi bi-printer"></i>
+                    </div>
+                </button>
+
+                <!-- Botón 3: Alertas Sanitarias & Vencimientos -->
+                <button type="button" class="action-tile-btn tile-amber" @onclick='() => OpenAlerts("expiring")'>
+                    <div class="tile-top">
+                        <div class="tile-icon icon-amber">
+                            <i class="bi bi-shield-exclamation"></i>
+                        </div>
+                        <span class="tile-badge badge-warning">@(Metrics.ExpiringSoonCount + Metrics.CriticalStockCount) Alertas</span>
+                    </div>
+                    <div>
+                        <div class="tile-title">Alertas Sanitarias</div>
+                        <p class="tile-desc">Monitoreo preventivo de lotes por vencer y medicamentos bajo el umbral mínimo.</p>
+                    </div>
+                    <div class="tile-arrow">
+                        <span>Ver Alertas</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </button>
+
+                <!-- Botón 4: Reporte Rápido de Stock Crítico -->
+                <button type="button" class="action-tile-btn tile-teal" @onclick='() => OpenReportModal("critical_stock")'>
+                    <div class="tile-top">
+                        <div class="tile-icon icon-emerald" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4; border-color: rgba(6, 182, 212, 0.3);">
+                            <i class="bi bi-cart-check-fill"></i>
+                        </div>
+                        <span class="tile-badge badge-info">Reposición</span>
+                    </div>
+                    <div>
+                        <div class="tile-title">Orden de Compra PDF</div>
+                        <p class="tile-desc">Generar reporte directo de productos con stock insuficiente para abastecimiento.</p>
+                    </div>
+                    <div class="tile-arrow">
+                        <span>Emitir Orden</span>
+                        <i class="bi bi-arrow-right"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===============================================================
+             TABLA GENERAL DE INVENTARIO FARMACÉUTICO
+             =============================================================== -->
+        <div class="pharma-card dashboard-inventory-section">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                <div>
+                    <h3 class="mb-0 fs-5"><i class="bi bi-table me-2 text-success"></i>Catálogo de Medicamentos en Existencia</h3>
+                    <div class="text-muted small">Visualización y control del inventario registrado en la base de datos SQLite</div>
+                </div>
+                <button class="btn-pharma btn-pharma-primary btn-sm" @onclick="OpenCreateProductModal">
+                    <i class="bi bi-plus-lg"></i> Nuevo Medicamento
+                </button>
+            </div>
+
+            <!-- Table Filters & Search -->
+            <div class="table-controls">
+                <div class="search-input-group">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="pharma-input" placeholder="Buscar por medicamento, principio activo, lote o código..."
+                           @bind="SearchTerm" @bind:after="ApplyFilters" />
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <select class="pharma-select" @bind="SelectedCategory" @bind:after="ApplyFilters">
+                        <option value="all">Todas las categorías</option>
+                        @foreach (var cat in Categories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+
+                    <select class="pharma-select" @bind="SelectedLaboratory" @bind:after="ApplyFilters">
+                        <option value="all">Todos los laboratorios</option>
+                        @foreach (var lab in Laboratories)
+                        {
+                            <option value="@lab">@lab</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Inventory Data Table -->
+            @if (IsLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-success" role="status"></div>
+                    <div class="text-muted mt-2 small">Cargando inventario desde SQLite...</div>
+                </div>
+            }
+            else if (Products.Count == 0)
+            {
+                <div class="text-center py-5 border rounded" style="border-color: var(--pharma-border) !important;">
+                    <i class="bi bi-capsule-pill fs-1 text-muted d-block mb-2"></i>
+                    <h5 class="text-white">No se encontraron medicamentos</h5>
+                    <p class="text-muted small mb-3">No hay productos que coincidan con los filtros de búsqueda aplicados.</p>
+                    <button class="btn-pharma btn-pharma-secondary btn-sm" @onclick="ResetFilters">
+                        <i class="bi bi-arrow-counterclockwise"></i> Limpiar Filtros
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="pharma-table-container">
+                    <table class="pharma-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Medicamento / Principio Activo</th>
+                                <th>Categoría</th>
+                                <th>Lote</th>
+                                <th>Vencimiento</th>
+                                <th>Stock</th>
+                                <th>P. Venta</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Products)
+                            {
+                                <tr>
+                                    <td class="font-monospace text-info fw-bold">@p.Code</td>
+                                    <td>
+                                        <div class="fw-bold text-white">@p.Name</div>
+                                        <div class="text-muted small">@p.GenericName • <span class="text-dim">@p.Presentation</span></div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary small">
+                                            @p.Category
+                                        </span>
+                                    </td>
+                                    <td class="font-monospace small">@p.BatchNumber</td>
+                                    <td>
+                                        <div class="small">@p.ExpirationDate.ToString("dd/MM/yyyy")</div>
+                                        @if (p.IsExpired)
+                                        {
+                                            <span class="badge-status badge-danger">Vencido</span>
+                                        }
+                                        else if (p.IsNearExpiration)
+                                        {
+                                            <span class="badge-status badge-warning">@p.DaysUntilExpiration d restantes</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold @(p.IsLowStock ? "text-danger" : "text-white")">
+                                            @p.Stock unid.
+                                        </span>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Mín: @p.MinStock</div>
+                                    </td>
+                                    <td class="fw-bold text-success">$@p.SalePrice.ToString("N2")</td>
+                                    <td>
+                                        @if (p.IsLowStock)
+                                        {
+                                            <span class="badge-status badge-danger"><i class="bi bi-arrow-down"></i> Crítico</span>
+                                        }
+                                        else if (p.IsNearExpiration)
+                                        {
+                                            <span class="badge-status badge-warning"><i class="bi bi-clock"></i> Por Vencer</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-status badge-success"><i class="bi bi-check"></i> Óptimo</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex gap-1">
+                                            <button class="btn btn-sm btn-outline-info btn-icon" title="Editar Medicamento" @onclick="() => EditProduct(p)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger btn-icon" title="Eliminar Medicamento" @onclick="() => DeleteProduct(p)">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+                    <div>Mostrando <strong>@Products.Count</strong> productos registrados</div>
+                    <div>Base de datos: <span class="text-success font-monospace">SQLite (pharmacare.db)</span></div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Modales Compartidos -->
+    <ProductModal @ref="ProductModalRef" OnProductSaved="HandleProductSaved" />
+    <DeleteConfirmModal @ref="DeleteModalRef" OnProductDeleted="HandleProductDeleted" />
+    <ReportModal @ref="ReportModalRef" />
+    <AlertsModal @ref="AlertsModalRef" OnEditClicked="EditProduct" />
+}
+
+@code {
+    // Auth State
+    private string LoginUsername { get; set; } = string.Empty;
+    private string LoginPassword { get; set; } = string.Empty;
+    private string? LoginError { get; set; }
+
+    // Dashboard State
+    private List<ProductDto> Products { get; set; } = new();
+    private DashboardMetricsDto Metrics { get; set; } = new();
+    private List<string> Categories { get; set; } = new();
+    private List<string> Laboratories { get; set; } = new();
+    private bool IsLoading { get; set; } = false;
+    private string? SuccessMessage { get; set; }
+
+    // Filters
+    private string SearchTerm { get; set; } = string.Empty;
+    private string SelectedCategory { get; set; } = "all";
+    private string SelectedLaboratory { get; set; } = "all";
+
+    // Modal References
+    private ProductModal? ProductModalRef;
+    private DeleteConfirmModal? DeleteModalRef;
+    private ReportModal? ReportModalRef;
+    private AlertsModal? AlertsModalRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthService.OnAuthStateChanged += async () =>
+        {
+            if (AuthService.IsAuthenticated)
+            {
+                await LoadDataAsync();
+            }
+            StateHasChanged();
+        };
+
+        if (AuthService.IsAuthenticated)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+    private void FillDemoCredentials()
+    {
+        LoginUsername = "admin";
+        LoginPassword = "admin123";
+        LoginError = null;
+    }
+
+    private async Task HandlePasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleLogin();
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        LoginError = null;
+        var success = AuthService.Login(LoginUsername, LoginPassword);
+        if (!success)
+        {
+            LoginError = "Usuario o contraseña incorrectos. Puedes usar las credenciales de demo (admin / admin123).";
+            return;
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        IsLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            Products = await ProductService.GetAllAsync(SearchTerm, SelectedCategory, SelectedLaboratory);
+            Metrics = await ProductService.GetMetricsAsync();
+            Categories = await ProductService.GetCategoriesAsync();
+            Laboratories = await ProductService.GetLaboratoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            LoginError = $"Error al cargar datos: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        Products = await ProductService.GetAllAsync(SearchTerm, SelectedCategory, SelectedLaboratory);
+    }
+
+    private async Task ResetFilters()
+    {
+        SearchTerm = string.Empty;
+        SelectedCategory = "all";
+        SelectedLaboratory = "all";
+        await ApplyFilters();
+    }
+
+    private void OpenCreateProductModal()
+    {
+        ProductModalRef?.OpenForCreate();
+    }
+
+    private void EditProduct(ProductDto product)
+    {
+        ProductModalRef?.OpenForEdit(product);
+    }
+
+    private void DeleteProduct(ProductDto product)
+    {
+        DeleteModalRef?.Open(product);
+    }
+
+    private async Task OpenReportModal(string reportType)
+    {
+        if (ReportModalRef != null)
+        {
+            await ReportModalRef.Open(reportType, Laboratories);
+        }
+    }
+
+    private async Task OpenAlerts(string tab)
+    {
+        if (AlertsModalRef != null)
+        {
+            await AlertsModalRef.Open(tab);
+        }
+    }
+
+    private async Task HandleProductSaved()
+    {
+        SuccessMessage = "Operación de inventario completada exitosamente en la base de datos.";
+        await LoadDataAsync();
+    }
+
+    private async Task HandleProductDeleted()
+    {
+        SuccessMessage = "El medicamento fue eliminado del catálogo.";
+        await LoadDataAsync();
+    }
+}

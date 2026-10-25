@@ -1,0 +1,242 @@
+@using PharmaCareBlazor.DTOs
+@using PharmaCareBlazor.Services.Interfaces
+@inject IReportService ReportService
+@inject IAuthService AuthService
+@inject IJSRuntime JSRuntime
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-custom" @onclick="Close">
+        <div class="modal-dialog-custom" style="max-width: 950px;" @onclick:stopPropagation="true">
+            <div class="modal-header-custom no-print">
+                <h3 class="modal-title-custom text-info">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Módulo de Emisión de Reportes en PDF</span>
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-body-custom">
+                <!-- Filters Controls (Hidden on Print) -->
+                <div class="p-3 mb-4 rounded no-print" style="background: #111a31; border: 1px solid var(--pharma-border);">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label-custom">Tipo de Informe Farmacéutico</label>
+                            <select class="pharma-select w-100" @bind="Filter.ReportType" @bind:after="GenerateReport">
+                                <option value="all">📋 1. Inventario General Valorizado</option>
+                                <option value="near_expiration">⚠️ 2. Medicamentos Próximos a Vencer (60 días)</option>
+                                <option value="critical_stock">📉 3. Alertas de Stock Crítico (Reposición)</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label-custom">Filtrar por Laboratorio</label>
+                            <select class="pharma-select w-100" @bind="Filter.Laboratory" @bind:after="GenerateReport">
+                                <option value="all">Todos los laboratorios</option>
+                                @foreach (var lab in Laboratories)
+                                {
+                                    <option value="@lab">@lab</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            <button class="btn-pharma btn-pharma-primary w-100 py-2" @onclick="PrintReport">
+                                <i class="bi bi-printer-fill fs-5"></i>
+                                <span>Imprimir / PDF</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Printable Report Sheet View -->
+                <div class="printable-report-container p-4 rounded" style="background: #ffffff; color: #1e293b; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                    <!-- Letterhead -->
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3 border-secondary">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="background: #059669; color: white; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                💊
+                            </div>
+                            <div>
+                                <h4 class="mb-0 fw-bold" style="color: #0f172a; letter-spacing: -0.02em;">PHARMACARE SUITE .NET</h4>
+                                <div class="small text-muted">Dirección Técnica y Control de Calidad Farmacéutica</div>
+                            </div>
+                        </div>
+                        <div class="text-end small text-muted">
+                            <div><strong>Fecha de Emisión:</strong> @ReportData.GeneratedAt.ToString("dd/MM/yyyy HH:mm")</div>
+                            <div><strong>Responsable:</strong> @ReportData.GeneratedBy</div>
+                            <div><strong>Base de Datos:</strong> SQLite Oficial (app.db)</div>
+                        </div>
+                    </div>
+
+                    <!-- Title of Report -->
+                    <div class="text-center my-3">
+                        <h4 class="fw-bold mb-1 text-uppercase" style="color: #047857;">@ReportData.Title</h4>
+                        <div class="text-secondary small">@ReportData.Subtitle</div>
+                    </div>
+
+                    <!-- Report Metrics Summary Cards -->
+                    <div class="row g-2 mb-3 text-center">
+                        <div class="col-3">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted small">Total Medicamentos</div>
+                                <div class="fw-bold fs-5 text-dark">@ReportData.TotalProducts</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted small">Unidades en Existencia</div>
+                                <div class="fw-bold fs-5 text-dark">@ReportData.TotalUnits</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted small">Costo Total Compra</div>
+                                <div class="fw-bold fs-5 text-secondary">$@ReportData.TotalCost.ToString("N2")</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 border rounded bg-light">
+                                <div class="text-muted small">Valor Venta Estimado</div>
+                                <div class="fw-bold fs-5 text-success">$@ReportData.TotalValue.ToString("N2")</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    @if (ReportData.Items.Count == 0)
+                    {
+                        <div class="text-center py-4 text-muted border rounded">
+                            <i class="bi bi-info-circle fs-3 d-block mb-1"></i>
+                            No se encontraron registros que coincidan con los criterios del informe.
+                        </div>
+                    }
+                    else
+                    {
+                        <table class="report-table-print w-100">
+                            <thead>
+                                <tr>
+                                    <th>Cód.</th>
+                                    <th>Medicamento / Principio Activo</th>
+                                    <th>Laboratorio</th>
+                                    <th>Lote</th>
+                                    <th>Vencimiento</th>
+                                    <th class="text-center">Stock</th>
+                                    <th class="text-end">Precio ($)</th>
+                                    <th class="text-end">Total ($)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in ReportData.Items)
+                                {
+                                    <tr>
+                                        <td class="font-monospace fw-bold">@item.Code</td>
+                                        <td>
+                                            <div class="fw-bold">@item.Name</div>
+                                            <div class="text-muted small">@item.GenericName (@item.Presentation)</div>
+                                        </td>
+                                        <td>@item.Laboratory</td>
+                                        <td class="font-monospace small">@item.BatchNumber</td>
+                                        <td>
+                                            @if (item.IsExpired)
+                                            {
+                                                <span class="text-danger fw-bold">VENCIDO (@item.ExpirationDate.ToString("dd/MM/yyyy"))</span>
+                                            }
+                                            else if (item.IsNearExpiration)
+                                            {
+                                                <span class="text-warning fw-bold">@item.ExpirationDate.ToString("dd/MM/yyyy") (@item.DaysUntilExpiration d)</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@item.ExpirationDate.ToString("dd/MM/yyyy")</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (item.IsLowStock)
+                                            {
+                                                <span class="text-danger fw-bold">@item.Stock (Mín: @item.MinStock)</span>
+                                            }
+                                            else
+                                            {
+                                                <span>@item.Stock</span>
+                                            }
+                                        </td>
+                                        <td class="text-end">$@item.SalePrice.ToString("N2")</td>
+                                        <td class="text-end fw-bold">$@((item.Stock * item.SalePrice).ToString("N2"))</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <!-- Official Signatures Footer -->
+                    <div class="row mt-5 pt-4 text-center border-top">
+                        <div class="col-6">
+                            <div style="border-top: 1px dashed #64748b; width: 60%; margin: 0 auto; padding-top: 5px;">
+                                <div class="fw-bold small">Q.F. Responsable / Director Técnico</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Colegio Químico Farmacéutico</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div style="border-top: 1px dashed #64748b; width: 60%; margin: 0 auto; padding-top: 5px;">
+                                <div class="fw-bold small">Control de Auditoría e Inventarios</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">PharmaCare Suite Audit Tool</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer-custom no-print">
+                <button type="button" class="btn-pharma btn-pharma-secondary" @onclick="Close">
+                    <i class="bi bi-x"></i> Cerrar
+                </button>
+                <button type="button" class="btn-pharma btn-pharma-primary" @onclick="PrintReport">
+                    <i class="bi bi-printer"></i> Imprimir / Guardar en PDF
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+
+    private ReportFilterDto Filter { get; set; } = new();
+    private ReportDataResult ReportData { get; set; } = new();
+    private List<string> Laboratories { get; set; } = new();
+
+    public async Task Open(string initialReportType = "all", List<string>? labs = null)
+    {
+        Filter.ReportType = initialReportType;
+        Filter.Laboratory = "all";
+        if (labs != null)
+        {
+            Laboratories = labs;
+        }
+
+        await GenerateReport();
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task GenerateReport()
+    {
+        var currentUser = AuthService.CurrentUser;
+        ReportData = await ReportService.GenerateReportAsync(Filter, currentUser);
+    }
+
+    private async Task PrintReport()
+    {
+        await JSRuntime.InvokeVoidAsync("printPharmaReport");
+    }
+}

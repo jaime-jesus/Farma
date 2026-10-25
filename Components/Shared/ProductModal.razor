@@ -1,0 +1,277 @@
+@using PharmaCareBlazor.DTOs
+@using PharmaCareBlazor.Services.Interfaces
+@inject IProductService ProductService
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-custom" @onclick="HandleBackdropClick">
+        <div class="modal-dialog-custom" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <h3 class="modal-title-custom">
+                    <i class="bi @(IsEditMode ? "bi-pencil-square text-warning" : "bi-plus-circle-fill text-success")"></i>
+                    <span>@(IsEditMode ? "Modificar Medicamento" : "Ingreso de Producto Farmacéutico")</span>
+                </h3>
+                <button type="button" class="modal-close-btn" @onclick="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-body-custom">
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger d-flex align-items-center mb-3 py-2 px-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                        <div>@ErrorMessage</div>
+                    </div>
+                }
+
+                <EditForm Model="@Model" OnValidSubmit="HandleValidSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-grid-2">
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Código de Producto (SKU)</label>
+                            <InputText @bind-Value="Model.Code" class="form-control-custom" placeholder="Ej: MED-105" />
+                            <ValidationMessage For="@(() => Model.Code)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Número de Lote</label>
+                            <InputText @bind-Value="Model.BatchNumber" class="form-control-custom" placeholder="Ej: LOT-2025-X01" />
+                            <ValidationMessage For="@(() => Model.BatchNumber)" class="text-danger small mt-1" />
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Nombre Comercial</label>
+                            <InputText @bind-Value="Model.Name" class="form-control-custom" placeholder="Ej: Paracetamol Forte 1g" />
+                            <ValidationMessage For="@(() => Model.Name)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Principio Activo</label>
+                            <InputText @bind-Value="Model.GenericName" class="form-control-custom" placeholder="Ej: Acetaminofén Micronizado" />
+                            <ValidationMessage For="@(() => Model.GenericName)" class="text-danger small mt-1" />
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Categoría Terapéutica</label>
+                            <InputSelect @bind-Value="Model.Category" class="form-control-custom">
+                                <option value="Analgésico">Analgésico</option>
+                                <option value="Antibiótico">Antibiótico</option>
+                                <option value="Antiinflamatorio">Antiinflamatorio</option>
+                                <option value="Antihistamínico">Antihistamínico</option>
+                                <option value="Gastroprotector">Gastroprotector</option>
+                                <option value="Antidiabético">Antidiabético</option>
+                                <option value="Antihipertensivo">Antihipertensivo</option>
+                                <option value="Respiratorio">Respiratorio</option>
+                                <option value="Suplemento">Suplemento</option>
+                                <option value="Corticoide">Corticoide</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Presentación</label>
+                            <InputSelect @bind-Value="Model.Presentation" class="form-control-custom">
+                                <option value="Caja x 30 Tabletas">Caja x 30 Tabletas</option>
+                                <option value="Caja x 20 Cápsulas">Caja x 20 Cápsulas</option>
+                                <option value="Caja x 100 Tabletas">Caja x 100 Tabletas</option>
+                                <option value="Frasco Jarabe 120ml">Frasco Jarabe 120ml</option>
+                                <option value="Caja x 5 Ampollas">Caja x 5 Ampollas</option>
+                                <option value="Inhalador 200 Dosis">Inhalador 200 Dosis</option>
+                                <option value="Tubo Crema 30g">Tubo Crema 30g</option>
+                                <option value="Frasco Vial 10ml">Frasco Vial 10ml</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Laboratorio Farmacéutico</label>
+                            <InputSelect @bind-Value="Model.Laboratory" class="form-control-custom">
+                                <option value="Bayer">Bayer</option>
+                                <option value="Pfizer">Pfizer</option>
+                                <option value="Genfar">Genfar</option>
+                                <option value="Bagó">Bagó</option>
+                                <option value="Sanofi">Sanofi</option>
+                                <option value="Merck">Merck</option>
+                                <option value="GlaxoSmithKline">GlaxoSmithKline</option>
+                                <option value="Novo Nordisk">Novo Nordisk</option>
+                                <option value="MK">MK</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Fecha de Vencimiento</label>
+                            <InputDate @bind-Value="Model.ExpirationDate" class="form-control-custom" />
+                            <ValidationMessage For="@(() => Model.ExpirationDate)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Stock Inicial / Actual</label>
+                            <InputNumber @bind-Value="Model.Stock" class="form-control-custom" />
+                            <ValidationMessage For="@(() => Model.Stock)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Stock Mínimo (Alerta)</label>
+                            <InputNumber @bind-Value="Model.MinStock" class="form-control-custom" />
+                            <ValidationMessage For="@(() => Model.MinStock)" class="text-danger small mt-1" />
+                        </div>
+                    </div>
+
+                    <div class="form-grid-3">
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Precio de Compra ($)</label>
+                            <InputNumber @bind-Value="Model.PurchasePrice" class="form-control-custom" step="0.01" />
+                            <ValidationMessage For="@(() => Model.PurchasePrice)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Precio de Venta ($)</label>
+                            <InputNumber @bind-Value="Model.SalePrice" class="form-control-custom" step="0.01" />
+                            <ValidationMessage For="@(() => Model.SalePrice)" class="text-danger small mt-1" />
+                        </div>
+
+                        <div class="form-group-custom">
+                            <label class="form-label-custom">Ubicación Física</label>
+                            <InputText @bind-Value="Model.Location" class="form-control-custom" placeholder="Ej: Estante B-2" />
+                        </div>
+                    </div>
+
+                    <div class="modal-footer-custom px-0 pb-0 mt-3">
+                        <button type="button" class="btn-pharma btn-pharma-secondary" @onclick="Close">
+                            <i class="bi bi-x"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn-pharma btn-pharma-primary" disabled="@IsSaving">
+                            @if (IsSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                <span>Guardando...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check2-circle"></i>
+                                <span>@(IsEditMode ? "Actualizar Medicamento" : "Registrar en Inventario")</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback OnProductSaved { get; set; }
+
+    private ProductCreateUpdateDto Model { get; set; } = new();
+    private bool IsEditMode { get; set; } = false;
+    private int EditingId { get; set; }
+    private bool IsSaving { get; set; } = false;
+    private string? ErrorMessage { get; set; }
+
+    public void OpenForCreate()
+    {
+        Model = new ProductCreateUpdateDto
+        {
+            ExpirationDate = DateTime.Today.AddMonths(12),
+            Stock = 20,
+            MinStock = 10,
+            PurchasePrice = 2.50m,
+            SalePrice = 5.00m,
+            Category = "Analgésico",
+            Presentation = "Caja x 30 Tabletas",
+            Laboratory = "Bayer",
+            Location = "Estante A-1"
+        };
+        IsEditMode = false;
+        EditingId = 0;
+        ErrorMessage = null;
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    public void OpenForEdit(ProductDto product)
+    {
+        Model = new ProductCreateUpdateDto
+        {
+            Id = product.Id,
+            Code = product.Code,
+            Name = product.Name,
+            GenericName = product.GenericName,
+            Category = product.Category,
+            Presentation = product.Presentation,
+            BatchNumber = product.BatchNumber,
+            ExpirationDate = product.ExpirationDate,
+            Stock = product.Stock,
+            MinStock = product.MinStock,
+            PurchasePrice = product.PurchasePrice,
+            SalePrice = product.SalePrice,
+            Laboratory = product.Laboratory,
+            Location = product.Location
+        };
+        IsEditMode = true;
+        EditingId = product.Id;
+        ErrorMessage = null;
+        IsOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        await Close();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        IsSaving = true;
+        ErrorMessage = null;
+
+        try
+        {
+            if (IsEditMode)
+            {
+                var result = await ProductService.UpdateAsync(EditingId, Model);
+                if (result.IsFailure)
+                {
+                    ErrorMessage = result.Message;
+                    IsSaving = false;
+                    return;
+                }
+            }
+            else
+            {
+                var result = await ProductService.CreateAsync(Model);
+                if (result.IsFailure)
+                {
+                    ErrorMessage = result.Message;
+                    IsSaving = false;
+                    return;
+                }
+            }
+
+            await OnProductSaved.InvokeAsync();
+            await Close();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error inesperado al guardar: {ex.Message}";
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+}

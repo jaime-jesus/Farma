@@ -1,0 +1,20 @@
+## .NET Core / Visual Studio
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+.vscode/
+
+## SQLite generated files
+*.db
+*.db-shm
+*.db-wal
+
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+appsettings.Production.json
